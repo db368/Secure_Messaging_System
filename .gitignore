@@ -3,3 +3,6 @@ __pycache__/timeutils.cpython-37.pyc
 httpserver.py
 ServerTest.py
 timeutils.py
+privkey.pem
+server.crt
+server.csr
