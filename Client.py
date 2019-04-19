@@ -29,26 +29,29 @@ def startConnection(host_ip, port):
 
 def handle(conn):
     """Send a request confirming our connection """
+    print("Sending message.")
     conn.write(b'GET / HTTP/1.1\n')
-    print(conn.recv().decode())
+    print("[Server]:", conn.recv().decode())
 
-def startSecureConnection(host_ip, port, cipher_list, cafile):
-    """Initiates a Secure Connection with the Server Module """
+def startSecureConnection(host_ip, port, cafile):
+    """Initiates a Secure Connection with the Server at host_ip, listening
+       on the given port, certified by the given cafile """
+    
+    print("Booting client.")
     
     # Create Socket and context for server authentication
     initial_sock = socket.socket(socket.AF_INET)
     context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=cafile)
-    # context.options |= ssl.HAS_TLSv1
-    # context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1 
-    # optional    # context.load_verify_locations("server.pem")
-    # sock = ssl.wrap_socket(initial_sock, ssl_version = ssl.PROTOCOL_TLSv1, ciphers = cipher_list)
-   # context.load_cert_chain(keyfile="server.key", certfile="server.pem", password="Miku") 
     context.load_cert_chain(certfile="client.crt", keyfile = "client.key")
     context.set_ciphers("HIGH:!aNULL:!kRSA:!PSK:!SRP:!MD5:!RC4")
+    
+    # Wrap Socket
     sock = context.wrap_socket(initial_sock, server_hostname=host_ip)
     attempts = 0
 
-    # Do a quick try catch for the server not being up
+    print("Socket wrapped, attempting to connect to the server")
+    
+    # Do a quick try catch to allow for retrying if the server isn't up
     while (attempts<3):
         try: 
             sock.connect((host_ip, port))
@@ -57,14 +60,15 @@ def startSecureConnection(host_ip, port, cipher_list, cafile):
         # If it doesn't work, try again a couple times
         except ConnectionRefusedError:
             if attempts == 2:
-                input("Connection refused. Terminating")
+                input("Connection refused after 3 attempts. Terminating.")
                 exit(0)
             else:
                 print("Connection refused, retrying...")
             time.sleep(1)
-        # Check to see if certs work out
+        
+        # Throw an error if the cert cannot be verified
         except ssl.SSLCertVerificationError as e:
-            print("Cert Refused!", e)
+            print("Cert Could not be verified!", e)
             exit(-1)
             break
         attempts = attempts + 1
@@ -74,9 +78,7 @@ def startSecureConnection(host_ip, port, cipher_list, cafile):
     return sock
 
 # Initiate our connection
-s = startSecureConnection(host_ip, port, "IDEA-CBC-SHA", "rootCA.pem")
-
+s = startSecureConnection(host_ip, port, "rootCA.pem")
 handle(s)
-
-
+print("Closing Client")
 
