@@ -2,6 +2,7 @@ import socket
 import time
 import ssl
 import json
+import os
 
 port = 12000
 host_ip = 'localhost'
@@ -30,10 +31,14 @@ def startConnection(host_ip, port):
 
 def handle(conn):
     """Send a request confirming our connection """
-    print("Sending message.")
+    print("Sending verification...")
     conn.write(b'GET / HTTP/1.1\n')
-    print("Waiting on server")
     print("[Server]:", conn.recv().decode())
+    
+    print("Beginning login loop")
+    
+    loginLoop(conn)
+    conn.close()
 
 def startSecureConnection(host_ip, port, cafile):
     """Initiates a Secure Connection with the Server at host_ip, listening
@@ -97,8 +102,10 @@ def tryAndSend(conn, s, timeouts=3):
 
 def loginLoop(conn):
     """ Requests password and username from the client using the specified connection"""
+    # Clear the screen
+    os.system("cls")
     
-    #Define a flag to specify when pass and username are good
+    # Define a flag to specify when pass and username are good
     passisgood = False
     while not passisgood:
         username = input("Please enter your username")
@@ -107,8 +114,9 @@ def loginLoop(conn):
         # Create a dictionary with the info needed for login
         content = {"purpose":"login", "username":username, "password":password}        
         # Try sending this
-        resp = tryAndSend(conn, json.loads(content, encoding="utf-8"))
-
+        resp = tryAndSend(conn, json.dumps(content).encode("utf-8"))
+        print(resp)
+        return
         if resp is False:
             print("The server timed out!")
             continue

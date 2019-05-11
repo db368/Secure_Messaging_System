@@ -1,6 +1,7 @@
 import socket
 import ssl
 import threading
+import json
 
 ip = '127.0.0.1'
 port = 12000
@@ -33,7 +34,30 @@ def handle(conn, address):
     print("Thread started, waiting on client")
     print("[Client]:",conn.recv().decode())
     conn.write(b'HTTP/1.1 200 OK\n\n%s' % conn.getpeername()[0].encode())
-    conn.close()
+
+    # Now we need to handle arbitrary input from the client
+    while True:
+        try:
+            # Get the input from the client, and decode it from json
+            incoming = conn.recv().decode("utf-8")
+            inc_dict = json.loads(incoming)
+
+            # Figure out what to do with it based on purpose
+            purpose = inc_dict["purpose"]
+
+            if purpose == "login":
+                username = inc_dict["username"]
+                password = inc_dict["password"]
+                
+                # Just print this for now...
+                print ("username, password", username, password)
+                conn.send("Yeah it's good...".encode("utf-8"))
+                break
+
+        
+        except TimeoutError:
+            continue
+
 
 def initSecureServer(ip, port, cafile):
     global clients
