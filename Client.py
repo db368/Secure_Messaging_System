@@ -3,6 +3,8 @@ import time
 import ssl
 import json
 import os
+import sys
+
 
 port = 12000
 host_ip = 'localhost'
@@ -89,12 +91,16 @@ def tryAndSend(conn, s, timeouts=3):
         and decode the string it returns."""
     
     conn.write(s)
+    conn.settimeout(5.0)
     for i in range(timeouts):
         try:
             response = conn.recv().decode("utf8")
             return response
         except TimeoutError:
             attempts += 1
+        except ConnectionResetError:
+            print("Server died")
+            sys.exit(-1)
 
     # If we got here, then the thing timed out
     return False
@@ -105,18 +111,48 @@ def loginLoop(conn):
     # Clear the screen
     os.system("cls")
     
-    # Define a flag to specify when pass and username are good
+    # Check to see if this is a new user. If not, continue going
+    while True:
+        newuser = input("Are you a new user y/n?")
+        if newuser == 'y':
+            # User Registration code
+            username = input("New Username: ")
+            password = input("New Password: ")
+
+            content = {"purpose":"newuser", "username":username, "password":password}
+            
+            resp = tryAndSend(conn, json.dumps(content).encode("utf-8"))
+
+            # Handle response from server 
+            if resp == "SQL_FAIL":
+                print("Something went wrong...")
+                continue
+            elif resp == "ALREADY_EXIST":
+                print("That username already exists, try again")
+                continue
+            elif resp == "SUCCESS":
+                print("User Successfully added!")
+                break
+
+        elif newuser == 'n':
+            break
+        else:
+            print("Please only respond with y or n")
+            continue
+    
+    # Take username and password from the user
     passisgood = False
     while not passisgood:
-        username = input("Please enter your username")
-        password = input("Please enter your password")
+        username = input("Please enter your username: ")
+        password = input("Please enter your password: ")
 
         # Create a dictionary with the info needed for login
         content = {"purpose":"login", "username":username, "password":password}        
-        # Try sending this
+        # Try sending this it to the server and checking the results
         resp = tryAndSend(conn, json.dumps(content).encode("utf-8"))
         print(resp)
         return
+
         if resp is False:
             print("The server timed out!")
             continue

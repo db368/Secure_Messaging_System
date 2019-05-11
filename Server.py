@@ -2,7 +2,9 @@ import socket
 import ssl
 import threading
 import json
+import authMod as AuthMod
 
+# - -- GLOBALS -- -
 ip = '127.0.0.1'
 port = 12000
 clients = []
@@ -30,7 +32,7 @@ def initServer(ip, port):
 
 
 def handle(conn, address):
-    """ Sends the client an ok message confirming a successful connection"""
+    """ Handles all requests from clients"""
     print("Thread started, waiting on client")
     print("[Client]:",conn.recv().decode())
     conn.write(b'HTTP/1.1 200 OK\n\n%s' % conn.getpeername()[0].encode())
@@ -40,29 +42,64 @@ def handle(conn, address):
         try:
             # Get the input from the client, and decode it from json
             incoming = conn.recv().decode("utf-8")
+            print(incoming)
+            # This will be 0 if the client leaves
+            if incoming == 0 or incoming == '' or not incoming:
+                raise ConnectionResetError
             inc_dict = json.loads(incoming)
 
-            # Figure out what to do with it based on purpose
+            # Figure out what to do with it based on its purpose tag
             purpose = inc_dict["purpose"]
 
             if purpose == "login":
                 username = inc_dict["username"]
                 password = inc_dict["password"]
                 
-                # Just print this for now...
-                print ("username, password", username, password)
-                conn.send("Yeah it's good...".encode("utf-8"))
-                break
+                res = AuthMod.checkCreds(username, password)
 
-        
+                # Check to see if this succeeded in the DB
+                # TODO: Research how the server is actually supposed to 
+                #       auth and keep track of authed clients
+                if res == "SUCCESS":
+                    conn.send("SUCCESS".encode())
+                else:
+                    conn.send("FAILURE".encode())
+                
+                continue
+
+            elif purpose == "newuser":
+                # Attempt to register this user in the DB
+                username = inc_dict["username"]
+                password = inc_dict["password"]
+                print("Trying to register new user")
+                res = AuthMod.registerUser(username, password)
+                
+                # If the username already exists, shoot it back to the client
+                if res == AuthMod.UserStatus.ALREADY_EXIST:
+                    conn.send("ALREADY_EXIST".encode("utf-8"))
+                    continue
+                # Handle some other kind of failure
+                elif res == AuthMod.UserStatus.FAILURE:
+                    conn.send("SQL_FAIL".encode("utf-8"))
+                    continue
+                else:
+                    conn.send("SUCCESS".encode("utf-8"))
+                    print("Client successfully added")
+            continue
         except TimeoutError:
             continue
+        except ConnectionResetError:
+            print("client left")
+            return
 
 
 def initSecureServer(ip, port, cafile):
     global clients
     global threads
 
+    # Rev up DB
+    
+    AuthMod.initDatabase()
     """Starts a secure server using SSL """
     print("Starting server")
 
