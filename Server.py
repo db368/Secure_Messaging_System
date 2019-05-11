@@ -1,8 +1,11 @@
 import socket
 import ssl
+import threading
 
 ip = '127.0.0.1'
 port = 12000
+clients = []
+threads = []
 
 def initServer(ip, port):
     """Starts an insecure server"""
@@ -25,18 +28,25 @@ def initServer(ip, port):
             continue
 
 
-def handle(conn):
+def handle(conn, address):
     """ Sends the client an ok message confirming a successful connection"""
+    print("Thread started, waiting on client")
     print("[Client]:",conn.recv().decode())
     conn.write(b'HTTP/1.1 200 OK\n\n%s' % conn.getpeername()[0].encode())
+    conn.close()
 
 def initSecureServer(ip, port, cafile):
+    global clients
+    global threads
+
     """Starts a secure server using SSL """
     print("Starting server")
 
     #Initiate a secure connection
     init_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     init_sock.bind((ip, port))
+
+    # Put the socket into server mode
     init_sock.listen(1)
     
     print("Socket bound, waiting for requests")
@@ -56,11 +66,13 @@ def initSecureServer(ip, port, cafile):
             context.load_cert_chain(certfile="server.crt", keyfile = "server.key")
             secure_sock = context.wrap_socket(connection, server_side = True)
             
-            # Send response, close connection
-            print("Socket wrapped, printing message") 
-            handle(secure_sock)
-            print("Response sent, closing connection")
-            secure_sock.close()
+            # Send response, add this client to our address list and give him a thread
+            print("Socket wrapped, adding user to list") 
+            clients.append(secure_sock)
+            new_thread =  threading.Thread(target=handle, args=(secure_sock, address))
+            new_thread.start()
+            threads.append(new_thread)
+            print("Client achieved.")
 
         except ssl.SSLError as e:
             print("SSL ERROR", e)
