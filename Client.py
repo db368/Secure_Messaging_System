@@ -262,7 +262,7 @@ def waitForMessages(conn):
     # Store incoming messages as a list that we use like a queue
     buffersize = 12
     messageBuffer = []
-
+    conn.settimeout(1.0)
     # Recieving loop
     while True:
         # Check if we should get back!
@@ -292,7 +292,7 @@ def waitForMessages(conn):
     
 def messagingMode(conn, room_name):
     """ Handle sending and recieving messages """
-
+    global get_back
     # Set up listener thread
     msg_thread = threading.Thread(target=waitForMessages, args=(conn,))
     msg_thread.start()
@@ -311,6 +311,7 @@ def messagingMode(conn, room_name):
                
                 get_back = True
                 print("Backing out of room...")
+                # Give the socket time to timeout
                 sleep(1)
                 return
             else:

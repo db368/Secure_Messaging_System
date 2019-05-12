@@ -139,6 +139,9 @@ def trustedLoop(client):
         except TimeoutError:
             clients.remove(client)
             continue
+        except ssl.SSLError as e:
+            print(e)
+            continue
         except ConnectionResetError:
             print("Registered cient left, removing from list")
             client.conn.close()
