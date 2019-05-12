@@ -171,20 +171,49 @@ def inputLoop(conn):
 
         print("What would you like to do?")
         print("1) See available rooms")
-        print("2) Start new Room")
+        print("2) Create new Room")
         print("3) Exit")
         
         command = input()
         if command == "1":
-            print("Seeing available rooms...")
+            print("checking available rooms...")
+            # Get room list from the server
+            content = {"purpose":"get_rooms"}
+            r = tryAndSend(conn, json.dumps(content).encode("utf-8"))
+
+            # Decode this json, then iterate through and print rooms
+            j = json.loads(r)
+            for rn,oc in j.items():
+                print(rn + ": " + str(oc), "Users")
+            
+            input("Press enter to return to main menu")
+            continue
+            # Loop through and ask user if they would like to join a room
+            # print("Type a valid room name to join it, or /back to return")
+            # while True:
+            #     ui = input()
+            #    if ui is in rn:
+                    
         elif command == "2":
-            print("Starting new room...")
+           # Get room name from user 
+            rn = input("Please enter the name for this new room: ")
+            content = {"purpose":"create_room", "name":rn}
+            print("Creating new room...")
+            res = tryAndSend(conn, json.dumps(content).encode("utf-8"))
+            
+            # Interpret return
+            if res == 0:
+                input("The room name requested already exists or is invalid. Press enter to return to main menu")
+            elif res == 1:
+                input("Room "+rn+" successfully created! Press Enter to Return to Main Menu")
         elif command == "3":
             print("Quitting...")
             exit()
+        
+        # Test Methods
         elif command == "93":
             print("Listening...")
-            conn.recv()
+            print(conn.recv())
         elif command == "39":
             print("Developer test activated, sending message")
             content = {"purpose": "sendmsg", "msg":"Testing!"}

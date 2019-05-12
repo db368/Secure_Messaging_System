@@ -10,6 +10,7 @@ ip = '127.0.0.1'
 port = 12000
 clients = []
 threads = []
+rooms = {}
 
 def initServer(ip, port):
     """Starts an insecure server"""
@@ -157,8 +158,58 @@ def performAction(this_client, inc_dict):
             if client != this_client:
                 client.sendMessage("msg", this_client.username)
 
+    if purpose == "create_room":
+        name = inc_dict["name"]
+        success = createRoom(name)
+
+        this_client.conn.send(str(success).encode("utf-8"))
+    
+    if purpose == "get_rooms":
+        rl = showRooms()
+        this_client.conn.send(rl)
     return
 
+def createRoom(name, capacity = 10):
+    """Creates a room with the given name"""
+    global rooms
+    
+    # Check to see if a room with this name already exists
+    if not name in rooms:
+        rooms[name] = []
+        return 1
+    
+    return 0 
+
+def joinRoom(name, client):
+    """ Adds a client to the specified room returns 1 if successful, 0 otherwise"""
+    global rooms
+    if name in rooms:
+        rooms[name].append(client)
+        return 1
+    return 0
+
+def leaveRoom(name, client):
+    """ Remove a client from a room"""
+    global rooms
+   
+    # Check to see if room exists
+    if name in rooms:
+        # Check to see if client is in room
+        if client in rooms[name]:
+            rooms[name].remove(client)
+            return 1
+    return 0
+
+def showRooms():
+    """ Returns a json with all valid rooms and occupants"""
+    global rooms
+    
+    roomoccupants = {}
+    for name,occupants in rooms.items():
+        roomoccupants[name] = len(occupants)
+
+    op = json.dumps(roomoccupants).encode("utf-8") 
+    return op
 
 def initSecureServer(ip, port, cafile):
     global clients
