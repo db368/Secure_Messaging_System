@@ -70,12 +70,12 @@ def checkCreds(username, password):
     conn = sqlite.connect("sql/backend.db")
     c = conn.cursor()
 
-    checkquery = "SELECT * FROM Users WHERE user_name = ? AND user_pass = ?"
+    checkquery = "SELECT user_id FROM Users WHERE user_name = ? AND user_pass = ?"
     c.execute(checkquery, (username, password))
 
-    # Pull vars out of the tuple
+    # Pull userid out of tuple if exists
     results = c.fetchone()
     if results is not None:
-        return "SUCCESS"
-
-    return "FAILURE"
+        return results
+    # fail if it doesnt
+    return -1

@@ -8,6 +8,7 @@ import sys
 
 port = 12000
 host_ip = 'localhost'
+username = None
 
 def startConnection(host_ip, port):
     """Initiates a Connection with the Server Module """
@@ -40,6 +41,7 @@ def handle(conn):
     print("Beginning login loop")
     
     loginLoop(conn)
+    inputLoop(conn)
     conn.close()
 
 def startSecureConnection(host_ip, port, cafile):
@@ -89,13 +91,16 @@ def startSecureConnection(host_ip, port, cafile):
 def tryAndSend(conn, s, timeouts=3):
     """ Tries to send the specified string to the given connection
         and decode the string it returns."""
-    
-    conn.write(s)
+
+    if s is not None: 
+        conn.write(s)
+
     conn.settimeout(5.0)
     for i in range(timeouts):
         try:
             response = conn.recv().decode("utf8")
             return response
+       
         except TimeoutError:
             attempts += 1
         except ConnectionResetError:
@@ -111,6 +116,8 @@ def loginLoop(conn):
     # Clear the screen
     os.system("cls")
     
+    global username
+
     # Check to see if this is a new user. If not, continue going
     while True:
         newuser = input("Are you a new user y/n?")
@@ -120,7 +127,7 @@ def loginLoop(conn):
             password = input("New Password: ")
 
             content = {"purpose":"newuser", "username":username, "password":password}
-            
+
             resp = tryAndSend(conn, json.dumps(content).encode("utf-8"))
 
             # Handle response from server 
@@ -157,6 +164,34 @@ def loginLoop(conn):
             print("The server timed out!")
             continue
 
+def inputLoop(conn):
+    """ The main menu of the client"""
+    while True:
+        os.system("cls")
+
+        print("What would you like to do?")
+        print("1) See available rooms")
+        print("2) Start new Room")
+        print("3) Exit")
+        
+        command = input()
+        if command == "1":
+            print("Seeing available rooms...")
+        elif command == "2":
+            print("Starting new room...")
+        elif command == "3":
+            print("Quitting...")
+            exit()
+        elif command == "93":
+            print("Listening...")
+            conn.recv()
+        elif command == "39":
+            print("Developer test activated, sending message")
+            content = {"purpose": "sendmsg", "msg":"Testing!"}
+            conn.send(json.dumps(content).encode("utf-8"))
+
+    
+    print(" What would you like to do next?")
 # Initiate our connection
 s = startSecureConnection(host_ip, port, "rootCA.pem")
 handle(s)

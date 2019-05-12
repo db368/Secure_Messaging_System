@@ -3,6 +3,7 @@ import ssl
 import threading
 import json
 import authMod as AuthMod
+import RoomManager
 
 # - -- GLOBALS -- -
 ip = '127.0.0.1'
@@ -32,11 +33,14 @@ def initServer(ip, port):
 
 
 def handle(conn, address):
-    """ Handles all requests from clients"""
+    """ Handles clients before they've successfully logged in"""
     print("Thread started, waiting on client")
     print("[Client]:",conn.recv().decode())
     conn.write(b'HTTP/1.1 200 OK\n\n%s' % conn.getpeername()[0].encode())
-
+    
+    # Store this for when the client eventually is logged in
+    client = None
+    
     # Now we need to handle arbitrary input from the client
     while True:
         try:
@@ -60,11 +64,14 @@ def handle(conn, address):
                 # Check to see if this succeeded in the DB
                 # TODO: Research how the server is actually supposed to 
                 #       auth and keep track of authed clients
-                if res == "SUCCESS":
-                    conn.send("SUCCESS".encode())
-                else:
+                if res == -1:
                     conn.send("FAILURE".encode())
-                
+                else:
+                    # If we get a userid, confirm the existance of this client,
+                    # then store all relevant info
+                    client = RoomManager.Client(conn, res, username)
+                    conn.send("SUCCESS".encode())
+                    break
                 continue
 
             elif purpose == "newuser":
@@ -91,6 +98,66 @@ def handle(conn, address):
         except ConnectionResetError:
             print("client left")
             return
+
+   # Quick check to make sure nothing happens if the client is not registered 
+    if client is None:
+        print("Client does not exist, Something went wrong")
+        conn.close()
+    
+    # If we've made it this far, the client should be a registered user
+    trustedLoop(client)
+
+
+            
+def trustedLoop(client):
+    """ Where the bulk of user operations take place with a confirmed client """
+
+    # First add this client to our global list of clients
+    global clients
+    conn = client.conn
+    clients.append(client)
+    while True:
+        try:
+            # Get the input from the client, and decode it from json
+            incoming = conn.recv().decode("utf-8")
+            print(incoming)
+            
+            # This will be 0 if the client leaves
+            if incoming == 0 or incoming == '' or not incoming:
+                raise ConnectionResetError
+            inc_dict = json.loads(incoming)
+            
+            # Handle this elsewhere
+            performAction(client, inc_dict)
+            
+            # Loop again
+            continue
+        
+        # Throw these for safety
+        except TimeoutError:
+            clients.remove(client)
+            continue
+        except ConnectionResetError:
+            print("Registered cient left, removing from list")
+            client.conn.close()
+            clients.remove(client)
+            return
+
+def performAction(this_client, inc_dict):
+    """ Performs an action based on incoming messages' purpose tags """
+
+    global clients
+    purpose = inc_dict["purpose"]
+
+    # Test method for sending messages
+    if purpose == "sendmsg":
+        message = inc_dict["msg"]
+
+        for client in clients:
+            if client != this_client:
+                client.sendMessage("msg", this_client.username)
+
+    return
 
 
 def initSecureServer(ip, port, cafile):
@@ -129,7 +196,7 @@ def initSecureServer(ip, port, cafile):
             
             # Send response, add this client to our address list and give him a thread
             print("Socket wrapped, adding user to list") 
-            clients.append(secure_sock)
+            # clients[address] = secure_sock
             new_thread =  threading.Thread(target=handle, args=(secure_sock, address))
             new_thread.start()
             threads.append(new_thread)
@@ -138,9 +205,9 @@ def initSecureServer(ip, port, cafile):
         except ssl.SSLError as e:
             print("SSL ERROR", e)
             continue
-        except:
-            print("Some Exception has occured")
-            continue
+        #except as e:
+        #    print("Some Exception has occured")
+        #    continue
 
 # Boot the server 
 initSecureServer(ip, port, "rootCA.pem")
