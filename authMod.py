@@ -6,6 +6,7 @@ class UserStatus(Enum):
     SUCCESSFUL = 0
     ALREADY_EXIST = 1
     FAILURE = 2
+    WEAK_PASS = 3
 
 def initDatabase():
     """ Returns false if a new database was created, true otherwise
@@ -46,6 +47,9 @@ def createTables(c, purge = False):
 
 def registerUser(username, password):
     """ Registers a new user to the database """   
+    # Test your might!
+    if not testMight(password):
+        return(UserStatus.WEAK_PASS)
     
     # Open Connection to the DB
     conn = sqlite.connect("sql/backend.db")
@@ -64,9 +68,28 @@ def registerUser(username, password):
     conn.close()
     return UserStatus.SUCCESSFUL
 
+def testMight(password):
+    """Checks the strength of the specified password"""
+    # Gather Info   
+    n = len(password)
+    numbers = sum(c.isdigit() for c in password)
+    words = sum(c.isdigit() for c in password)
+    spaces = sum(c.isspace() for c in password)
+    other = len(password) - words - spaces
+
+    # Check each criteria
+    if n<8:
+        return False
+    if spaces > 0:
+        return False
+    if numbers<2:
+        return False
+
+    return True
+
 def checkCreds(username, password):
     """ Check to see if there is a matching username/password pair in the database """
-    #Open Connection
+    # Open Connection
     conn = sqlite.connect("sql/backend.db")
     c = conn.cursor()
 

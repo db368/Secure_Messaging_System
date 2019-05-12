@@ -43,7 +43,6 @@ def handle(conn):
     print("Beginning login loop")
     
     loginLoop(conn)
-    inputLoop(conn)
     conn.close()
 
 def startSecureConnection(host_ip, port, cafile):
@@ -113,6 +112,28 @@ def tryAndSend(conn, s, timeouts=3):
     return False
 
 
+def testMight(password):
+    """Checks the strength of the specified password"""
+    # Gather Info   
+    n = len(password)
+    numbers = sum(c.isdigit() for c in password)
+    words = sum(c.isalpha() for c in password)
+    spaces = sum(c.isspace() for c in password)
+    other = len(password) - words - spaces
+
+    # Check each criteria
+    if n<8:
+        print("Password is too short")
+        return False
+    if spaces > 0:
+        print("Password has spaces")
+        return False
+    if numbers<2:
+        print("Password has less than 2 numbers")
+        return False
+
+    return True
+
 def loginLoop(conn):
     """ Requests password and username from the client using the specified connection"""
     # Clear the screen
@@ -124,25 +145,46 @@ def loginLoop(conn):
     while True:
         newuser = input("Are you a new user y/n?")
         if newuser == 'y':
-            # User Registration code
-            username = input("New Username: ")
-            password = input("New Password: ")
+            # User Registration Loop
+            while True:
+                os.system("cls")
+                print("____Registration Page_____")
+                print("Password Requirements:")
+                print("- Must be atleast 8 characters long")
+                print("- Must have atleast 2 numbers")
+                print("- No spaces")
+                username = input("New Username: ")
+                password = input("New Password: ")
+                
+                # Test if password meets standards
+                if not testMight(password):
+                    input("Press Enter to try again")
+                    continue
+                
+                # Have user confirm password
+                cpassword = input("Confirm Password: ")
+                if not password == cpassword:
+                    input("Passwords are different, try again")
+                    continue
+                
+                content = {"purpose":"newuser", "username":username, "password":password}
 
-            content = {"purpose":"newuser", "username":username, "password":password}
+                resp = tryAndSend(conn, json.dumps(content).encode("utf-8"))
 
-            resp = tryAndSend(conn, json.dumps(content).encode("utf-8"))
-
-            # Handle response from server 
-            if resp == "SQL_FAIL":
-                print("Something went wrong...")
-                continue
-            elif resp == "ALREADY_EXIST":
-                print("That username already exists, try again")
-                continue
-            elif resp == "SUCCESS":
-                print("User Successfully added!")
-                break
-
+                # Handle response from server 
+                if resp == "SQL_FAIL":
+                    print("Something went wrong...")
+                    continue
+                elif resp == "ALREADY_EXIST":
+                    input("That username already exists, try again")
+                    continue
+                elif resp == "WEAK_PASS":
+                    input("That password is too weak, try again")
+                    continue
+                elif resp == "SUCCESS":
+                    print("User Successfully added!")
+                    break
+            break
         elif newuser == 'n':
             break
         else:
@@ -152,6 +194,8 @@ def loginLoop(conn):
     # Take username and password from the user
     passisgood = False
     while not passisgood:
+        os.system("cls")
+        print("______Login Page______")
         username = input("Please enter your username: ")
         password = input("Please enter your password: ")
 
@@ -159,7 +203,12 @@ def loginLoop(conn):
         content = {"purpose":"login", "username":username, "password":password}        
         # Try sending this it to the server and checking the results
         resp = tryAndSend(conn, json.dumps(content).encode("utf-8"))
-        print(resp)
+        if resp == "SUCCESS":
+            inputLoop(conn, username)
+        else:
+            print("That username/password pair does not exist")
+            input("Press enter to try again.")
+            continue
         return
 
         if resp is False:
@@ -178,11 +227,13 @@ def interpretCommand(cmd):
     # Split by space then return
     return cmd.split('/')[1].split(" ")
 
-def inputLoop(conn):
+def inputLoop(conn, username):
     """ The main menu of the client"""
     while True:
         os.system("cls")
-
+        print("______ Main Menu ______")
+        print("Welcome", username + "!")
+        print("")
         print("What would you like to do?")
         print("1) See available rooms")
         print("2) Create new Room")

@@ -76,9 +76,10 @@ def handle(conn, address):
                 continue
 
             elif purpose == "newuser":
-                # Attempt to register this user in the DB
                 username = inc_dict["username"]
                 password = inc_dict["password"]
+
+                # Attempt to register this user in the DB
                 print("Trying to register new user")
                 res = AuthMod.registerUser(username, password)
                 
@@ -90,6 +91,8 @@ def handle(conn, address):
                 elif res == AuthMod.UserStatus.FAILURE:
                     conn.send("SQL_FAIL".encode("utf-8"))
                     continue
+                elif res == AuthMod.UserStatus.WEAK_PASS:
+                    conn.send("WEAK_PASS".encode("utf-8"))
                 else:
                     conn.send("SUCCESS".encode("utf-8"))
                     print("Client successfully added")
