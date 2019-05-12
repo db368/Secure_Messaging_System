@@ -12,7 +12,10 @@ class Client():
         """ Send a message to this user """
         info = {"msg":message, "sender":sender}
         msg = json.dumps(info).encode("utf-8")
-        self.conn.send(msg)
+        try: 
+            self.conn.send(msg)
+        except:
+            print("That user is not getting massage")
 
 class Room():
     """ A chatroom for users to join and send messages """

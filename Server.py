@@ -115,6 +115,7 @@ def trustedLoop(client):
 
     # First add this client to our global list of clients
     global clients
+    global rooms
     conn = client.conn
     clients.append(client)
     while True:
@@ -142,6 +143,12 @@ def trustedLoop(client):
             print("Registered cient left, removing from list")
             client.conn.close()
             clients.remove(client)
+            
+            # Remove client from room
+            for name,room in rooms.items():
+                if client in room:
+                    leaveRoom(name, client)
+                    break
             return
 
 def performAction(this_client, inc_dict):
@@ -151,7 +158,7 @@ def performAction(this_client, inc_dict):
     purpose = inc_dict["purpose"]
 
     # Test method for sending messages
-    if purpose == "sendmsg":
+    if purpose == "announce":
         message = inc_dict["msg"]
 
         for client in clients:
@@ -167,6 +174,23 @@ def performAction(this_client, inc_dict):
     if purpose == "get_rooms":
         rl = showRooms()
         this_client.conn.send(rl)
+    
+    if purpose == "join_room":
+        name = inc_dict["name"]
+        success = joinRoom(name, this_client)
+
+        this_client.conn.send(str(success).encode("utf-8"))
+    
+    if purpose == "msg_room":
+        message = inc_dict["msg"]
+        room_name = inc_dict["name"]
+        messageRoom(room_name, this_client, message)
+        print("blasting out message!")
+
+    if purpose == "leave_room":
+        room_name = inc_dict["room_name"]
+        leaveRoom(room_name, this_client)
+
     return
 
 def createRoom(name, capacity = 10):
@@ -185,6 +209,8 @@ def joinRoom(name, client):
     global rooms
     if name in rooms:
         rooms[name].append(client)
+        
+        messageRoom(name, "System", client.username+" has entered this room")
         return 1
     return 0
 
@@ -197,6 +223,7 @@ def leaveRoom(name, client):
         # Check to see if client is in room
         if client in rooms[name]:
             rooms[name].remove(client)
+            messageRoom(name, "System", client.username+" has left this room")
             return 1
     return 0
 
@@ -210,6 +237,28 @@ def showRooms():
 
     op = json.dumps(roomoccupants).encode("utf-8") 
     return op
+
+def messageRoom(name, sender, msg):
+    """ Send a message to all users in the given room """
+    global rooms
+    
+    room = rooms[name]
+
+    # Check if the sender is in the room
+    if sender == "System":
+        sender_name = "System"
+        pass
+    elif not sender in room:
+        print(" Sender isn't in the room")
+        return 0
+    else:
+        sender_name = sender.username
+    
+    # Send each user in the room the message
+    for user in room:
+        user.sendMessage(msg, sender_name)
+    
+    return 1
 
 def initSecureServer(ip, port, cafile):
     global clients

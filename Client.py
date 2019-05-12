@@ -4,11 +4,13 @@ import ssl
 import json
 import os
 import sys
-
+import threading
+from time import sleep
 
 port = 12000
 host_ip = 'localhost'
 username = None
+get_back = False
 
 def startConnection(host_ip, port):
     """Initiates a Connection with the Server Module """
@@ -164,6 +166,18 @@ def loginLoop(conn):
             print("The server timed out!")
             continue
 
+def interpretCommand(cmd):
+    """ Interprets whether or not a / command has been executed """
+    # Strip leading and trailing whitespace
+    cmd = cmd.strip()
+
+    # Check to see if there was a / in front of the command
+    if not cmd[0] == "/":
+        return None
+    
+    # Split by space then return
+    return cmd.split('/')[1].split(" ")
+
 def inputLoop(conn):
     """ The main menu of the client"""
     while True:
@@ -186,26 +200,45 @@ def inputLoop(conn):
             for rn,oc in j.items():
                 print(rn + ": " + str(oc), "Users")
             
-            input("Press enter to return to main menu")
-            continue
-            # Loop through and ask user if they would like to join a room
-            # print("Type a valid room name to join it, or /back to return")
-            # while True:
-            #     ui = input()
-            #    if ui is in rn:
-                    
+            #Loop through and ask user if they would like to join a room
+            ui = input("Type a valid room name to join it, or /back to return")
+            while True:
+                
+                # This room is in our list of rooms, join the specified room
+                if ui in rn:
+                    content = {"purpose":"join_room", "name":ui}
+                    success = tryAndSend(conn, json.dumps(content).encode("utf-8"))
+
+                    # Check to see if this was successful
+                    if success:
+                        messagingMode(conn, ui)
+                        break
+                    else:
+                        input("Room joining failed! Returning to main menu")
+                    continue
+                
+                # This is not a valid room 
+                else:
+                    #Check to see if the user input a /back
+                    pc = interpretCommand(ui)
+                    if pc and pc[0] == "back":
+                        continue
+                    # otherwise just go back to looping 
+                    ui = input(ui + " is not a valid room name. Try again.")
+
         elif command == "2":
-           # Get room name from user 
+            # Get room name from user 
             rn = input("Please enter the name for this new room: ")
             content = {"purpose":"create_room", "name":rn}
             print("Creating new room...")
             res = tryAndSend(conn, json.dumps(content).encode("utf-8"))
             
-            # Interpret return
+            # Interpret return. 0 on success, 1 on failure
             if res == 0:
                 input("The room name requested already exists or is invalid. Press enter to return to main menu")
             elif res == 1:
                 input("Room "+rn+" successfully created! Press Enter to Return to Main Menu")
+        
         elif command == "3":
             print("Quitting...")
             exit()
@@ -216,11 +249,80 @@ def inputLoop(conn):
             print(conn.recv())
         elif command == "39":
             print("Developer test activated, sending message")
-            content = {"purpose": "sendmsg", "msg":"Testing!"}
+            content = {"purpose": "announce", "msg":"Testing!"}
             conn.send(json.dumps(content).encode("utf-8"))
 
     
     print(" What would you like to do next?")
+
+def waitForMessages(conn):
+    """ Intended to be ran as a thread for recieving and printing messages"""
+    global get_back
+
+    # Store incoming messages as a list that we use like a queue
+    buffersize = 12
+    messageBuffer = []
+
+    # Recieving loop
+    while True:
+        # Check if we should get back!
+        if get_back:
+            get_back = False
+            return
+        # Wait for message
+        try:
+            msg = json.loads(conn.recv().decode("utf-8"))
+            sender = msg["sender"]
+            text = msg["msg"]
+        except:
+            continue
+        
+        # Message recieved, see if the message buffer is full
+        if len(messageBuffer) > 12:
+            messageBuffer.pop(12)
+        
+        message = '[' + sender + ']:' + text
+        messageBuffer.insert(0, message)
+
+        # Print all messages in buffer
+        os.system("cls")
+        # This actually reverses the thing
+        for m in messageBuffer[::-1]:
+            print(m)
+    
+def messagingMode(conn, room_name):
+    """ Handle sending and recieving messages """
+
+    # Set up listener thread
+    msg_thread = threading.Thread(target=waitForMessages, args=(conn,))
+    msg_thread.start()
+
+    send_request = {"purpose":"msg_room", "name":room_name}
+    while True: # Wait for input
+        message = input(">")
+        # Check to see if this was a command
+        cmd = interpretCommand(message)
+        
+        if cmd is not None and len(cmd) > 0: 
+            # Kill the message thread and tell the server
+            if cmd[0] == "quit":
+                content = {"purpose":"leave_room", "room_name":room_name}
+                conn.send(json.dumps(content).encode("utf-8"))
+               
+                get_back = True
+                print("Backing out of room...")
+                sleep(1)
+                return
+            else:
+                print(cmd, "That is not a valid command!")
+        
+        # Send our message to the server
+        send_request["msg"] = message
+        conn.send(json.dumps(send_request).encode("utf-8"))
+
+
+
+    
 # Initiate our connection
 s = startSecureConnection(host_ip, port, "rootCA.pem")
 handle(s)
