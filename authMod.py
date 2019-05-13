@@ -1,6 +1,9 @@
 import sqlite3 as sqlite
 import os
 from enum import Enum
+import hashlib
+import base64
+import uuid
 
 class UserStatus(Enum):
     SUCCESSFUL = 0
@@ -68,6 +71,20 @@ def registerUser(username, password):
     conn.close()
     return UserStatus.SUCCESSFUL
 
+def getFriends(username1):
+    """ Return the friends of the given user """
+    
+    return ["bob", "Jay", "Ricky"]
+
+def addFriendRelationship(username1, username2):
+    # First get user ID 
+    # conn = sqlite.connect(dbname)
+    # c = conn.cursor()
+    
+    return []
+
+def removeFriends():
+    return []
 def testMight(password):
     """Checks the strength of the specified password"""
     # Gather Info   

@@ -237,7 +237,8 @@ def inputLoop(conn, username):
         print("What would you like to do?")
         print("1) See available rooms")
         print("2) Create new Room")
-        print("3) Exit")
+        print("3) Start a Private Chat")
+        print("4) Exit")
         
         command = input()
         if command == "1":
@@ -291,6 +292,19 @@ def inputLoop(conn, username):
                 input("Room "+rn+" successfully created! Press Enter to Return to Main Menu")
         
         elif command == "3":
+            # Get this user's friendslist
+            content = {"purpose":"get_friends"}
+            res = tryAndSend(conn, json.dumps(content).encode("utf-8"))
+
+            # Decode list, and iterate through to print friends           
+            friendlist = json.loads(res)
+            for friend,status in friendlist.items():
+                print(friend,":", status)
+            
+            # Ask the client to start a room with the specified friend
+            input("Select the friend you want to ")
+        
+        elif command == "4":
             print("Quitting...")
             exit()
         

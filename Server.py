@@ -192,6 +192,29 @@ def performAction(this_client, inc_dict):
         room_name = inc_dict["name"]
         messageRoom(room_name, this_client, message)
         print("blasting out message!")
+    
+    if purpose == "get_friends":
+        
+        # See if other connected users are in the friendslist
+        friendlist = AuthMod.getFriends(this_client)
+        friend_dict={}
+        
+        # Create a dictionary with friends
+        for friend in friendlist:
+            friend_dict[friend] = "Offline"
+
+        # See if client is online
+        for client in clients:
+            if client.username in friend_dict:
+                friend_dict[friend] = "Online"
+
+        # Encode this and send to client
+        this_client.conn.send(json.dumps(friend_dict).encode("utf-8"))
+
+    #if purpose == "add_friend":
+    #    friend_name = ["friend_name"] 
+    #    res = addFriendRelationship(this_client.username, friend_name)
+    #    thie_client.conn.send(res)
 
     if purpose == "leave_room":
         room_name = inc_dict["room_name"]
