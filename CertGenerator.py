@@ -10,13 +10,14 @@ import datetime
 
 
 rootcapath = "certs/rootCAkey.pem"
-rootcacert = "certs/rootCAcert.pem"
+rootcacert = "certs/rootCAcert.crt"
 
 rootcakey = None
 def ensureDirectoriesExist():
     """ Make sure we the correct directories for the root ca"""
     global rootcapath
     global rootcacert
+    global rootcakey
 
     certdir = "certs"
     if not os.path.exists(certdir):
@@ -27,6 +28,10 @@ def ensureDirectoriesExist():
         key = genKey(rootcapath)
     else:
         key = loadKey(rootcapath)
+
+    # Generate our root CA Cert if it doesn't exist
+    if not os.path.exists(rootcacert):
+        genRootCA(key, rootcacert)
     
     # Store this globally
     rootcakey = key
@@ -42,14 +47,14 @@ def genKey(path):
 
     return key
 
-def genRootCA(key, cert_path, country = "US", state = "NewJersey", locality="Newark", organization ="NJIT", common_name="mysite.com" ):
-    "Create a cert signing request, all it requires is a link to the key, and the path to the cert"
+def genRootCA(key, cert_path, country = "US", state = "NewJersey", locality="Wayne", organization ="CAroot Authority", common_name="localhost"):
+    "Generate a self signed cert"
     # Various details about who we are. For a self-signed certificate the
     # subject and issuer are always the same.
     subject = issuer = x509.Name([
         x509.NameAttribute(NameOID.COUNTRY_NAME, country),
         x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, locality),
-        x509.NameAttribute(NameOID.LOCALITY_NAME, country),
+        x509.NameAttribute(NameOID.LOCALITY_NAME, state),
         x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization),
         x509.NameAttribute(NameOID.COMMON_NAME, common_name),
     ])
@@ -86,12 +91,12 @@ def signCSR(csr, outpath, country = "US", state = "NewJersey", locality="Wayne",
     
     # Get what we need from the CSR
     subject = csr.subject
-    
+
     # Have our CA credentials here
     issuer = x509.Name([
         x509.NameAttribute(NameOID.COUNTRY_NAME, country),
         x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, locality),
-        x509.NameAttribute(NameOID.LOCALITY_NAME, country),
+        x509.NameAttribute(NameOID.LOCALITY_NAME, state),
         x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization),
         x509.NameAttribute(NameOID.COMMON_NAME, common_name),
     ])
@@ -131,7 +136,7 @@ def genCSR(key, country = "US", state = "NewJersey", locality="Newark", organiza
     subject = x509.Name([
         x509.NameAttribute(NameOID.COUNTRY_NAME, country),
         x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, locality),
-        x509.NameAttribute(NameOID.LOCALITY_NAME, country),
+        x509.NameAttribute(NameOID.LOCALITY_NAME, state),
         x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization),
         x509.NameAttribute(NameOID.COMMON_NAME, common_name),
     ])
@@ -155,9 +160,3 @@ def loadKey(path):
     key = serialization.load_pem_private_key(s, backend=default_backend(), password=b"passphrase")
     
     return key
-
-def signCert(key, cert, out_path):
-    cert.sign(key, hashes.SHA256(), default_backend())
-    # Write our certificate out to disk.
-    with open(out_path, "wb") as f:
-        f.write(cert.public_bytes(serialization.Encoding.PEM))
