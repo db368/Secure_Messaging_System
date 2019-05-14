@@ -96,7 +96,7 @@ def tryAndSend(conn, s, timeouts=3):
     if s is not None: 
         conn.write(s)
 
-    conn.settimeout(5.0)
+    conn.settimeout(20.0)
     for i in range(timeouts):
         try:
             response = conn.recv().decode("utf8")
@@ -238,7 +238,8 @@ def inputLoop(conn, username):
         print("1) See available rooms")
         print("2) Create new Room")
         print("3) Start a Private Chat")
-        print("4) Exit")
+        print("4) Add new Friend")
+        print("5) Exit")
         
         command = input()
         if command == "1":
@@ -305,6 +306,44 @@ def inputLoop(conn, username):
             input("Select the friend you want to ")
         
         elif command == "4":
+            # Send the name of the client that the user would like to add
+            sname = input("Type the name of the user you'd like to add: ")
+            content = {"purpose":"search_username", "like":sname}  
+            names = tryAndSend(conn, json.dumps(content).encode("utf-8"))         
+
+            # Print a list of names from the server in numerical order
+            print(names)
+            namelist = json.loads(names)["results"]
+            counter = 1
+            for name in namelist:
+                print(str(counter) + ")", name)
+                counter+=1
+            
+            # Take user input on one to send a request to 
+            target = input("Type the number of the user you would like to add as a friend")
+            try:
+                # Check to see if this number is in range
+                index = int(target) - 1
+                # print("HORRIBLE DEVELOPER PRINT", index)
+                if index > counter or index < 0:
+                    print(index, ">", counter, index>counter)
+                    raise ValueError
+                
+                target = namelist[index]
+
+                # Send a request to the server to add these dudes
+                content = {"purpose":"add_friend", "username":target}
+                result = tryAndSend(conn, json.dumps(content).encode('utf-8'))
+            except ValueError as e:
+                input("That's not a valid number, returning to main menu...")
+            
+            print(result)
+            if result == "0":
+                input("FAILURE ! Send me some angry emails")
+            
+            else:
+                input(target + " added successfully!")
+        elif command == "5":
             print("Quitting...")
             exit()
         

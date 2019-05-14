@@ -71,20 +71,83 @@ def registerUser(username, password):
     conn.close()
     return UserStatus.SUCCESSFUL
 
+
+def searchUsernames(name):
+    """Search the DB for a specific username returns a wildcard list of users"""
+    
+    conn = sqlite.connect("sql/backend.db")
+    c = conn.cursor()
+
+    # Throw on some wildcard characters to give the user some leinency
+    name = "%"+name+"%"
+    
+    # Send out a query to search the DB for the given username string
+    c.execute("SELECT user_id, user_name FROM Users WHERE user_name LIKE ?",(name,))
+
+    # Iterate through results and add to our return list
+    users = [] 
+    for user in c.fetchall():
+        print(user) 
+        username = user[1]
+        users.append(username)
+
+    conn.close()  
+    return users
+
 def getFriends(username1):
     """ Return the friends of the given user """
     
-    return ["bob", "Jay", "Ricky"]
+    conn = sqlite.connect("sql/backend.db")
+    c = conn.cursor()
+
+    friends=[]
+    
+    # Search the friend registry in both directions
+    c.execute("SELECT user2 FROM Friends where user1=?",(username1,))
+    for friend in c.fetchall():
+        friends.append(friend[0])
+    
+    c.execute("SELECT user1 FROM Friends where user2=?",(username1,))
+    for friend in c.fetchall():
+       friends.append(friend[0])
+    
+    # Now get their usernames
+    friendnames = []
+    for friend in friends:
+        c.execute("SELECT user_name FROM Users WHERE user_id =?", (friend,))
+        name = c.fetchone()[0]
+        friendnames.append(name)
+
+    # Return this list of usernames
+    conn.close()
+    return friendnames
 
 def addFriendRelationship(username1, username2):
-    # First get user ID 
-    # conn = sqlite.connect(dbname)
-    # c = conn.cursor()
-    
-    return []
+    conn = sqlite.connect("sql/backend.db")
+    c = conn.cursor()
+
+    try:
+        # Get user1 id
+        c.execute("SELECT user_id FROM Users WHERE user_name = ? ", (username1,))
+        id1 = c.fetchone()[0]
+
+        # Get user 2 id
+        c.execute("SELECT user_id FROM Users WHERE user_name = ? ", (username2,))
+        id2 = c.fetchone()[0]
+        #Insert a new relationship into friends table
+        c.execute("INSERT INTO Friends VALUES(?,?)", (id1, id2))
+    except ValueError as e:
+        print("That's not ahppending")
+        return 0
+
+    conn.commit()
+    conn.close()
+
+    return 1
 
 def removeFriends():
     return []
+
 def testMight(password):
     """Checks the strength of the specified password"""
     # Gather Info   
@@ -116,6 +179,6 @@ def checkCreds(username, password):
     # Pull userid out of tuple if exists
     results = c.fetchone()
     if results is not None:
-        return results
+        return results[0]
     # fail if it doesnt
     return -1

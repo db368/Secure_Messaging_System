@@ -196,7 +196,7 @@ def performAction(this_client, inc_dict):
     if purpose == "get_friends":
         
         # See if other connected users are in the friendslist
-        friendlist = AuthMod.getFriends(this_client)
+        friendlist = AuthMod.getFriends(this_client.id)
         friend_dict={}
         
         # Create a dictionary with friends
@@ -209,12 +209,20 @@ def performAction(this_client, inc_dict):
                 friend_dict[friend] = "Online"
 
         # Encode this and send to client
+        print(friend_dict)
         this_client.conn.send(json.dumps(friend_dict).encode("utf-8"))
 
-    #if purpose == "add_friend":
-    #    friend_name = ["friend_name"] 
-    #    res = addFriendRelationship(this_client.username, friend_name)
-    #    thie_client.conn.send(res)
+    if purpose == "add_friend":
+        friend_name = inc_dict["username"] 
+        res = AuthMod.addFriendRelationship(this_client.username, friend_name)
+        this_client.conn.send(str(res).encode("utf-8"))
+
+    if purpose == "search_username":
+        # Get a list of similar names from the DB
+        search_string = inc_dict["like"]
+        potential_users = AuthMod.searchUsernames(search_string)
+        return_json = {"results":potential_users}
+        this_client.conn.send(json.dumps(return_json).encode("utf-8"))
 
     if purpose == "leave_room":
         room_name = inc_dict["room_name"]
