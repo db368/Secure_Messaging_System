@@ -70,7 +70,7 @@ def handle(conn, address):
                 else:
                     # If we get a userid, confirm the existance of this client,
                     # then store all relevant info
-                    client = RoomManager.Client(conn, res, username)
+                    client = RoomManager.Client(conn, res, username, address)
                     conn.send("SUCCESS".encode())
                     break
                 continue
@@ -193,6 +193,35 @@ def performAction(this_client, inc_dict):
         messageRoom(room_name, this_client, message)
         print("blasting out message!")
     
+    if purpose == "start_p2p":
+        # This client wants to initiate p2p with another client
+        username = inc_dict["username"]
+
+        # Find this client in our list of clients       
+        for client in clients:
+            if client.username == username:
+                client.ping((this_client.address, this_client.username))
+
+                # Let our client know that this guy has gotten the message
+                this_client.conn.send(str(1).encode("utf-8"))
+                return
+        
+        # If we got this far, we are full of fail
+        this_client.conn.send(str(0).encode("utf-8"))
+    
+    if purpose == "check_pings":
+        ret = {}
+        #print(this_client.pings)
+        for ping in this_client.pings:
+         #   print(ping[1])
+
+            ret[ping[1]] = [ping[0][1], ping[0][0]]
+        
+        this_client.conn.send(json.dumps(ret).encode('utf-8'))
+
+    if purpose == "accept_ping":
+        # PANIC
+        pass
     if purpose == "get_friends":
         
         # See if other connected users are in the friendslist

@@ -3,10 +3,12 @@ import json
 
 class Client():
     """ Represents all relevant data for a user """
-    def __init__(self, sock, id, username):
+    def __init__(self, sock, id, username, address):
         self.conn = sock
         self.id = id
         self.username = username
+        self.pings = []
+        self.address = address
     
     def sendMessage(self, message, sender):
         """ Send a message to this user """
@@ -16,7 +18,11 @@ class Client():
             self.conn.send(msg)
         except:
             print("That user is not getting massage")
-
+    
+    def ping(self, ping):
+        """Adds a notification for this user"""
+        self.pings.append(ping)
+    
 class Room():
     """ A chatroom for users to join and send messages """
     def __init__(self, name, capacity):

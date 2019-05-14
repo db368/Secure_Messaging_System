@@ -239,7 +239,8 @@ def inputLoop(conn, username):
         print("2) Create new Room")
         print("3) Start a Private Chat")
         print("4) Add new Friend")
-        print("5) Exit")
+        print("5) Check Notifications")
+        print("6) Exit")
         
         command = input()
         if command == "1":
@@ -299,11 +300,34 @@ def inputLoop(conn, username):
 
             # Decode list, and iterate through to print friends           
             friendlist = json.loads(res)
+            counter = 1
+            friends = []
             for friend,status in friendlist.items():
-                print(friend,":", status)
+                print(str(counter)  + ")", friend,":", status)
+                friends.append(friend)
+                counter+=1
             
             # Ask the client to start a room with the specified friend
-            input("Select the friend you want to ")
+            target = input("Type the number of the friend you want to message")
+            try:
+                # Check to see if this number is in range
+                index = int(target) - 1
+                if index > counter or index < 0:
+                    print(index, ">", counter, index>counter)
+                    raise ValueError
+                
+                target = friends[index]
+
+                # Send a request to the server that we're waiting
+                content = {"purpose":"start_p2p", "username":target}
+                result = tryAndSend(conn, json.dumps(content).encode('utf-8'))
+                if result == "0":
+                    input("FAILURE ! Send me some angry emails")
+                    
+            except ValueError as e:
+                input("That's not a valid number, returning to main menu...")
+            
+            print(result)
         
         elif command == "4":
             # Send the name of the client that the user would like to add
@@ -324,7 +348,6 @@ def inputLoop(conn, username):
             try:
                 # Check to see if this number is in range
                 index = int(target) - 1
-                # print("HORRIBLE DEVELOPER PRINT", index)
                 if index > counter or index < 0:
                     print(index, ">", counter, index>counter)
                     raise ValueError
@@ -343,7 +366,18 @@ def inputLoop(conn, username):
             
             else:
                 input(target + " added successfully!")
+        
         elif command == "5":
+            content = {"purpose":"check_pings"}
+            results = tryAndSend(conn, json.dumps(content).encode("utf-8"))
+            
+            j = json.loads(results)
+
+            for one,two in j.items():
+                print(one, "Has invited you to a room!")
+
+            input()
+        elif command == "6":
             print("Quitting...")
             exit()
         
