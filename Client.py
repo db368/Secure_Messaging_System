@@ -259,7 +259,7 @@ def inputLoop(conn, username):
             while True:
                 
                 # This room is in our list of rooms, join the specified room
-                if ui in rn:
+                if ui in j:
                     content = {"purpose":"join_room", "name":ui}
                     success = tryAndSend(conn, json.dumps(content).encode("utf-8"))
 
@@ -427,7 +427,7 @@ def waitForMessages(conn):
         if len(messageBuffer) > 12:
             messageBuffer.pop(12)
         
-        message = '[' + sender + ']:' + text
+        message = '[' + sender + ']:' + text + " | cypher, key, #bits" + str(conn.cipher())
         messageBuffer.insert(0, message)
 
         # Print all messages in buffer
@@ -439,6 +439,8 @@ def waitForMessages(conn):
 def waitForFriend(init_conn, ip, port):
     """ Essentially play server for a bit """
 
+    global username
+    sender = username
     # Need to hunker for a bit and wait for the server to get us the ipa
     counter = 1
     while counter < 10:
@@ -496,7 +498,6 @@ def waitForFriend(init_conn, ip, port):
     new_thread =  threading.Thread(target=messagingMode, args=(secure_sock, "server"))
     new_thread.start()
 
-    sender = "what's my name again?"
     while True:
         message = input() 
         info = {"msg":message, "sender":sender}
@@ -524,7 +525,8 @@ def PMode(server_conn, ip, port):
     msg_thread = threading.Thread(target=waitForMessages, args=(sock,))
     msg_thread.start()
 
-    sender = "The other client"
+    global username
+    sender = username
     while True:
         message  = input() 
         info = {"msg":message, "sender":sender}
