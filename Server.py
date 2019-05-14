@@ -220,8 +220,29 @@ def performAction(this_client, inc_dict):
         this_client.conn.send(json.dumps(ret).encode('utf-8'))
 
     if purpose == "accept_ping":
-        # PANIC
-        pass
+        # HERE GO THOSE CLIENTS
+        # Tell the sender that he has company
+        
+        username = inc_dict["username"]
+
+        for client in clients:
+            if client.username == username:
+                connection = client.conn
+                print("Ok so we found the other user")
+                break
+                
+        address=this_client.address
+        j = {}
+        j["port"] = address[1]
+        j["ip"] = address[0]
+
+        print("He's at ", j["port"] ,j["ip"])
+        # Encode and fire it at the server
+        connection.send(json.dumps(j).encode("utf-8"))
+
+        #Now pong back to the user that his friend got the message
+        this_client.conn.send("Ready for you".encode("utf-8"))
+
     if purpose == "get_friends":
         
         # See if other connected users are in the friendslist

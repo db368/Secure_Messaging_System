@@ -64,15 +64,15 @@ def startSecureConnection(host_ip, port, cafile):
     print("Socket wrapped, attempting to connect to the server")
     
     # Do a quick try catch to allow for retrying if the server isn't up
-    while (attempts<3):
+    while (attempts<10):
         try: 
             sock.connect((host_ip, port))
             break
 
         # If it doesn't work, try again a couple times
         except ConnectionRefusedError:
-            if attempts == 2:
-                input("Connection refused after 3 attempts. Terminating.")
+            if attempts == 10:
+                input("Connection refused after 10 attempts. Terminating.")
                 exit(0)
             else:
                 print("Connection refused, retrying...")
@@ -323,11 +323,11 @@ def inputLoop(conn, username):
                 result = tryAndSend(conn, json.dumps(content).encode('utf-8'))
                 if result == "0":
                     input("FAILURE ! Send me some angry emails")
-                    
+                elif result == "1":
+                    waitForFriend(conn, "localhost", 3939)
             except ValueError as e:
                 input("That's not a valid number, returning to main menu...")
             
-            print(result)
         
         elif command == "4":
             # Send the name of the client that the user would like to add
@@ -375,6 +375,14 @@ def inputLoop(conn, username):
 
             for one,two in j.items():
                 print(one, "Has invited you to a room!")
+                ip = two[1]
+                port = two[0]
+                if input("Press y to accept") == "y":
+                    content = {"purpose":"accept_ping", "username":one}
+                    print(tryAndSend(conn, json.dumps(content).encode("utf-8")))
+                    PMode(conn, ip, port)
+                    
+                
 
             input()
         elif command == "6":
@@ -427,8 +435,106 @@ def waitForMessages(conn):
         # This actually reverses the thing
         for m in messageBuffer[::-1]:
             print(m)
+
+def waitForFriend(init_conn, ip, port):
+    """ Essentially play server for a bit """
+
+    # Need to hunker for a bit and wait for the server to get us the ipa
+    counter = 1
+    while counter < 10:
+        try:
+            print("Waiting...")
+            stuff = json.loads(init_conn.recv().decode("utf-8"))
+            targetport = stuff["port"]
+            print("Ok this guy should be at port", targetport)
+            break
+        except:
+            # You didn't come this far to give up now!
+            print("zzz")
+            counter+=1
+            if counter == 10:
+                print("Guess they aren't coming...")
+                return
+
+    #Initiate a secure connection
+    init_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    init_sock.bind((ip, port))
+
+    # Put the socket into server mode
+    init_sock.listen(1)
     
-def messagingMode(conn, room_name):
+    print("Socket bound, waiting for requests")
+
+    # Listen loop
+    while(True):
+        try:
+            # Accept Incoming Connections
+            info = {}
+            secure_sock = None
+            connection, address = init_sock.accept()
+            #if address[1] != targetport:
+            #    print("Non, target",address," detected. Get out of here!")
+            #    connection = None
+            #    continue
+
+            print("Connection recieved, attempting to wrap in a secure socket")
+            
+            # Define context and wrap socket
+            context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH, cafile = "rootCA.pem")
+            context.load_cert_chain(certfile="server.crt", keyfile = "server.key")
+            secure_sock = context.wrap_socket(connection, server_side = True)
+            
+            # clients[address] = secure_sock
+            print("Client achieved. Feel big?")
+            break
+
+        except ssl.SSLError as e:
+            print("SSL ERROR", e)
+            continue
+
+    # Ok so we've got our socket, now we just neeed to set up our message thread, and hunker down
+    new_thread =  threading.Thread(target=messagingMode, args=(secure_sock, "server"))
+    new_thread.start()
+
+    sender = "what's my name again?"
+    while True:
+        message = input() 
+        info = {"msg":message, "sender":sender}
+        msg = json.dumps(info).encode("utf-8")
+        try: 
+            secure_sock.send(msg)
+        except:
+            print("That user is not getting msg")
+
+def PMode(server_conn, ip, port):
+    """ Enter private messaging mode"""
+
+    # Wait for the server to send us some credentials
+    print("Connecting to other user")
+    
+    #   Server should send us an IP and Port
+    # stuff = json.loads(server_conn.recv().decode("utf-8"))
+    # ip = stuff["ip"]
+    # port = stuff["port"]
+
+
+    # Ok now we do the init secure connection
+    print("Connecting to guy at ip", ip, "and port", 3939)
+    sock = startSecureConnection('localhost', 3939, "rootCA.pem")
+    msg_thread = threading.Thread(target=waitForMessages, args=(sock,))
+    msg_thread.start()
+
+    sender = "The other client"
+    while True:
+        message  = input() 
+        info = {"msg":message, "sender":sender}
+        msg = json.dumps(info).encode("utf-8")
+        try: 
+            sock.send(msg)
+        except:
+            print("That user is not getting msg")
+
+def messagingMode(conn, room_name, privatemode = False):
     """ Handle sending and recieving messages """
     global get_back
     # Set up listener thread
